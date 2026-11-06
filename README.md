@@ -13,6 +13,13 @@ Das Spiel besteht aus einer einzigen Datei (`index.html`) und laeuft ohne Instal
 | Tastatur | Pfeile oder WASD | Leertaste | P |
 | Gamepad | Stick / Steuerkreuz | A (oder andere Taste) | Start |
 
+## Power-ups und Ton
+
+- **3-Fach-Schuss** (gruen): 10 Sekunden lang feuert das Schiff fuenf statt zwei Schuesse.
+- **Schutzschild** (blau): faengt einen Treffer ab.
+- Manche zerstoerten Asteroiden lassen Power-ups fallen, einfach einsammeln.
+- Alle Sounds werden vom Browser selbst erzeugt. Ton an/aus mit **M** oder dem Lautsprecher-Symbol oben rechts. Auf dem iPad startet der Ton nach dem ersten Tippen, und der Stummschalter am iPad schaltet ihn ebenfalls stumm.
+
 ## Lokal testen
 
 Datei `index.html` im Browser oeffnen, oder `python3 -m http.server` starten und `http://localhost:8000` aufrufen.
