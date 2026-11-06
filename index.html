@@ -39,9 +39,11 @@
 
   // ---- Sound (alles per WebAudio erzeugt, keine Dateien) ----
   const MUTE_KEY = "star-destroyer-muted";
+  let muted = false;
   try { muted = localStorage.getItem(MUTE_KEY) === "1"; } catch (e) {}
   let actx = null, master = null, noiseBuf = null;
   function unlockAudio() {
+    if (actx && actx.state === "running") return;
     try {
       if (!actx) {
         const AC = window.AudioContext || window.webkitAudioContext;
@@ -81,7 +83,7 @@
   };
   function setMuted(v) { muted = v; try { localStorage.setItem(MUTE_KEY, v ? "1" : "0"); } catch (e) {} }
   // Lautsprecher-Knopf oben rechts (unter den Herzen)
-  function onMuteButton(wx, wy) { return wx > W - 56 && wx < W - 8 && wy > 44 && wy < 92; }
+  function onMuteButton(wx, wy) { return wx > W - 52 && wx < W - 12 && wy > 48 && wy < 88; }
 
   // ---- Zustand ----
   const HS_KEY = "star-destroyer-highscore";
@@ -89,7 +91,7 @@
   try { highscore = parseInt(localStorage.getItem(HS_KEY) || "0", 10) || 0; } catch (e) {}
   let state = "menu"; // menu | play | pause | over
   const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let items = [], power = { triple: 0, shield: false }, muted = false, trailAcc = 0, bgCanvas = null, rockGrad = null, rings = [], shake = 0, scorePop = 0, lastScore = 0, newHigh = false, ship, bullets, rocks, particles, score, lives, level, spawnTimer, fireTimer, time = 0, flash = 0;
+  let items = [], power = { triple: 0, shield: false }, trailAcc = 0, bgCanvas = null, rockGrad = null, rings = [], shake = 0, scorePop = 0, lastScore = 0, newHigh = false, ship, bullets, rocks, particles, score, lives, level, spawnTimer, fireTimer, time = 0, flash = 0;
   const stars = [];
 
   function initStars() {
@@ -133,7 +135,10 @@
     if (e.button !== 0) return;
     unlockAudio();
     [input.pointerX, input.pointerY] = toWorld(e.clientX, e.clientY);
-    if (state !== "menu" && onMuteButton(input.pointerX, input.pointerY)) { setMuted(!muted); return; }
+    if (state !== "menu" && onMuteButton(input.pointerX, input.pointerY)) {
+      setMuted(!muted);
+      if (state !== "play") return; // im Spiel zaehlt der Klick trotzdem als Schuss
+    }
     input.mouseDown = true;
     if (state === "menu" || state === "over") startGame();
     else if (state === "pause") state = "play";
@@ -152,7 +157,10 @@
     unlockAudio();
     if (state !== "menu") {
       const t0 = e.changedTouches[0], [mx, my] = toWorld(t0.clientX, t0.clientY);
-      if (onMuteButton(mx, my)) { setMuted(!muted); return; }
+      if (onMuteButton(mx, my)) {
+        setMuted(!muted);
+        if (state !== "play") return; // im Spiel steuert der Finger trotzdem das Schiff
+      }
     }
     input.touchActive = true;
     touchPoint(e);
@@ -323,8 +331,12 @@
         if (Math.hypot(a.x - b.x, a.y - b.y) < a.r) {
           b.dead = true; a.dead = true;
           score += a.size === 3 ? 20 : a.size === 2 ? 50 : 100;
-          explode(a.x, a.y, 10 + a.size * 4, "#ffb347", a.r * 2.2); sfx.boom(a.size);
-          if (Math.random() < (a.size === 1 ? 0.06 : 0.12)) dropPowerup(Math.random() < 0.55 ? "triple" : "shield", a.x, a.y); if (!reduceMotion) shake = Math.max(shake, a.size === 3 ? 6 : 2);
+          explode(a.x, a.y, 10 + a.size * 4, "#ffb347", a.r * 2.2);
+          sfx.boom(a.size);
+          if (Math.random() < (a.size === 1 ? 0.06 : 0.12)) {
+            dropPowerup(Math.random() < 0.55 ? "triple" : "shield", a.x, a.y);
+          }
+          if (!reduceMotion) shake = Math.max(shake, a.size === 3 ? 6 : 2);
           if (a.size > 1) { spawnRock(a.size - 1, a.x - 8, a.y); spawnRock(a.size - 1, a.x + 8, a.y); }
           level = 1 + Math.floor(score / 500);
         }
@@ -336,11 +348,12 @@
     // Treffer: Asteroid gegen Schiff
     if (ship.invuln <= 0) {
       for (const a of rocks) {
-        if (Math.hypot(a.x - ship.x, a.y - ship.y) < a.r * 0.85 + ship.r * 0.7) {
+        if (Math.hypot(a.x - ship.x, a.y - ship.y) < a.r * 0.85 + (power.shield ? 30 : ship.r * 0.7)) {
           a.dead = true;
           if (power.shield) {
             power.shield = false; ship.invuln = 1;
             explode(a.x, a.y, 16, "#6cc8ff", 90); sfx.shieldBreak();
+            if (!reduceMotion) shake = Math.max(shake, 5);
             break;
           }
           sfx.hit();
