@@ -41,7 +41,7 @@
   let highscore = 0;
   try { highscore = parseInt(localStorage.getItem(HS_KEY) || "0", 10) || 0; } catch (e) {}
   let state = "menu"; // menu | play | pause | over
-  let ship, bullets, rocks, particles, score, lives, level, spawnTimer, fireTimer, time = 0, flash = 0;
+  let newHigh = false, ship, bullets, rocks, particles, score, lives, level, spawnTimer, fireTimer, time = 0, flash = 0;
   const stars = [];
 
   function initStars() {
@@ -52,7 +52,7 @@
   function reset() {
     ship = { x: W / 2, y: H * 0.8, vx: 0, vy: 0, r: 14, invuln: 2 };
     bullets = []; rocks = []; particles = [];
-    score = 0; lives = 3; level = 1; spawnTimer = 1; fireTimer = 0;
+    score = 0; newHigh = false; flash = 0; lives = 3; level = 1; spawnTimer = 1; fireTimer = 0;
   }
 
   // ---- Eingabe: Tastatur, Maus, Touch, Gamepad ----
@@ -62,6 +62,7 @@
   window.addEventListener("keydown", e => {
     if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(e.key)) e.preventDefault();
     keys[e.code] = true;
+    if (e.repeat) return;
     if (e.code === "KeyP" || e.code === "Escape") togglePause();
     if ((e.code === "Enter" || e.code === "Space") && (state === "menu" || state === "over")) startGame();
   });
@@ -71,8 +72,12 @@
 
   function toWorld(clientX, clientY) { return [clientX / scale, clientY / scale]; }
 
+  let usingMouse = false;
   canvas.addEventListener("mousemove", e => {
     [input.pointerX, input.pointerY] = toWorld(e.clientX, e.clientY);
+    // Erst bei deutlicher Mausbewegung (seit der letzten Tastatursteuerung) folgt das Schiff der Maus
+    if (input.anchorX == null) { input.anchorX = input.pointerX; input.anchorY = input.pointerY; }
+    if (Math.hypot(input.pointerX - input.anchorX, input.pointerY - input.anchorY) > 12) usingMouse = true;
   });
   canvas.addEventListener("mousedown", e => {
     if (e.button !== 0) return;
@@ -107,9 +112,11 @@
   let lastPadButtons = false;
   function pollGamepad() {
     input.pad.x = 0; input.pad.y = 0; input.pad.fire = false;
+    let found = false;
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
     for (const p of pads) {
-      if (!p) continue;
+      if (!p || p.mapping !== "standard") continue;
+      found = true;
       const dz = 0.2;
       let x = p.axes[0] || 0, y = p.axes[1] || 0;
       if (Math.abs(x) < dz) x = 0;
@@ -129,6 +136,7 @@
       lastPadButtons = !!(start || fire);
       break;
     }
+    if (!found) lastPadButtons = false;
   }
 
   function togglePause() {
@@ -168,6 +176,9 @@
   function update(dt) {
     time += dt;
     for (const s of stars) { s.y += 30 * s.z * dt * (state === "play" ? 1 + level * 0.08 : 1); }
+    for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
+    particles = particles.filter(p => p.life > 0);
+    flash = Math.max(0, flash - dt);
     if (state !== "play") return;
 
     // Bewegung: Touch folgt dem Finger, Maus folgt dem Zeiger, sonst Tastatur/Gamepad
@@ -176,12 +187,13 @@
     let ky = (keys.ArrowDown || keys.KeyS ? 1 : 0) - (keys.ArrowUp || keys.KeyW ? 1 : 0);
     if (input.pad.x || input.pad.y) { kx = input.pad.x; ky = input.pad.y; }
     let target = null;
+    if (input.mouseDown) usingMouse = true;
     if (input.touchActive && input.tx !== null) target = [input.tx, input.ty - TOUCH_OFFSET];
     else if (!kx && !ky && input.pointerX !== null && usingMouse) target = [input.pointerX, input.pointerY];
     if (kx || ky) {
       const len = Math.hypot(kx, ky);
       ship.x += (kx / len) * speed * dt; ship.y += (ky / len) * speed * dt;
-      usingMouse = false;
+      usingMouse = false; input.anchorX = input.pointerX; input.anchorY = input.pointerY;
     } else if (target) {
       const dx = target[0] - ship.x, dy = target[1] - ship.y;
       const k = 1 - Math.exp(-16 * dt);
@@ -237,7 +249,7 @@
           if (lives <= 0) {
             state = "over";
             if (score > highscore) {
-              highscore = score;
+              highscore = score; newHigh = true;
               try { localStorage.setItem(HS_KEY, String(highscore)); } catch (e) {}
             }
           }
@@ -247,12 +259,7 @@
       rocks = rocks.filter(a => !a.dead);
     }
 
-    for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
-    particles = particles.filter(p => p.life > 0);
-    flash = Math.max(0, flash - dt);
   }
-  let usingMouse = false;
-  canvas.addEventListener("mousemove", () => { usingMouse = true; });
 
   // ---- Zeichnen ----
   function drawShip() {
@@ -336,7 +343,7 @@
     if (state === "over") {
       ctx.fillStyle = "rgba(5,9,20,0.65)"; ctx.fillRect(0, 0, W, H);
       text("GAME OVER", W / 2, H / 2 - 20, 54, "#ff5f6d");
-      text("Punkte: " + score + (score >= highscore && score > 0 ? "  (neuer Highscore!)" : ""), W / 2, H / 2 + 24, 24, "#fff");
+      text("Punkte: " + score + (newHigh ? "  (neuer Highscore!)" : ""), W / 2, H / 2 + 24, 24, "#fff");
       text("Tippen, Klicken oder Leertaste fuer nochmal", W / 2, H / 2 + 68, 20, "#ffd166");
     }
   }
@@ -344,7 +351,7 @@
   // ---- Hauptschleife ----
   let last = performance.now();
   function frame(now) {
-    const dt = Math.min(0.05, (now - last) / 1000);
+    const dt = Math.max(0, Math.min(0.05, (now - last) / 1000));
     last = now;
     pollGamepad();
     update(dt);

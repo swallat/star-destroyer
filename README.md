@@ -8,7 +8,7 @@ Das Spiel besteht aus einer einzigen Datei (`index.html`) und laeuft ohne Instal
 
 | Geraet | Bewegen | Schiessen | Pause |
 |---|---|---|---|
-| iPad / Touch | Finger ziehen | automatisch | Tippen |
+| iPad / Touch | Finger ziehen | automatisch | pausiert beim Verlassen der Seite |
 | Maus | Maus bewegen | Klick halten | P |
 | Tastatur | Pfeile oder WASD | Leertaste | P |
 | Gamepad | Stick / Steuerkreuz | A (oder andere Taste) | Start |
