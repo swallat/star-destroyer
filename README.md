@@ -17,7 +17,14 @@ Das Spiel besteht aus einer einzigen Datei (`index.html`) und laeuft ohne Instal
 
 - **3-Fach-Schuss** (gruen): 10 Sekunden lang feuert das Schiff fuenf statt zwei Schuesse.
 - **Schutzschild** (blau): faengt einen Treffer ab.
+- **Herz** (rot): gibt ein verlorenes Leben zurueck (maximal 3).
 - Manche zerstoerten Asteroiden lassen Power-ups fallen, einfach einsammeln.
+
+## Kometen und Space-Wurm
+
+- Kometen mit langem Schweif sind schnell und geben mehr Punkte.
+- Aus gruen leuchtenden Kometen schluepft ein **Space-Wurm**, der das Schiff verfolgt. Beruehrt er es, ist es gefangen: Jetzt schnell schiessen, bis der Wurm besiegt ist, sonst kostet es ein Leben. Ein Schutzschild wehrt den Wurm einmal ab.
+- Die durchsichtigen Asteroiden im Hintergrund sind nur Deko: Man kann einfach durch sie hindurchfliegen.
 - Alle Sounds werden vom Browser selbst erzeugt. Ton an/aus mit **M** oder dem Lautsprecher-Symbol oben rechts. Auf dem iPad startet der Ton nach dem ersten Tippen, und der Stummschalter am iPad schaltet ihn ebenfalls stumm.
 
 ## Lokal testen
