@@ -70,6 +70,17 @@ const check = (name, ok, info) => { console.log((ok ? "OK   " : "FAIL ") + name 
   await page.keyboard.up("Space");
   const livesAfter = await page.evaluate(() => __game.lives);
   check("Mit Schiessen befreit man sich und besiegt den Wurm", await page.evaluate(() => __game.worm === null) && livesAfter === livesBefore, { livesBefore, livesAfter });
+  // Ring-Asteroiden: durch das Loch schiessen gibt Bonus, daneben wird der Schuss geblockt
+  await page.evaluate(() => { __game.rocks.length = 0; __game.ship.invuln = 5; __game.bullets.length = 0; const h = __game.spawnHoop(__game.ship.x + 30, __game.ship.y - 200); h.vx = 0; h.vy = 0; });
+  await page.keyboard.down("Space"); await page.waitForTimeout(700); await page.keyboard.up("Space");
+  const blocked = await page.evaluate(() => ({ done: __game.hoops[0].done }));
+  check("Schuss daneben wird vom Ring geblockt (kein Bonus)", blocked.done === false, blocked);
+  await page.evaluate(() => { __game.hoops.length = 0; __game.bullets.length = 0; const h = __game.spawnHoop(__game.ship.x, __game.ship.y - 200); h.vx = 0; h.vy = 0; });
+  const scoreBefore = await page.evaluate(() => __game.score);
+  await page.keyboard.down("Space"); await page.waitForTimeout(700); await page.keyboard.up("Space");
+  const through = await page.evaluate(() => ({ done: __game.hoops.length ? __game.hoops[0].done : true, score: __game.score }));
+  check("Durchschuss durch das Loch gibt 250 Bonuspunkte", through.done === true && through.score >= scoreBefore + 250, { scoreBefore, ...through });
+
   await page.keyboard.press("KeyM");
   check("M schaltet den Ton aus", await page.evaluate(() => __game.muted) === true);
   await page.keyboard.press("KeyM");
