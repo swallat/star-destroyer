@@ -245,6 +245,7 @@
   }
 
   function spawnWorm(x, y) {
+    if (worm) return;
     const segs = [];
     for (let i = 0; i < 14; i++) segs.push({ x, y: y - i * 6 });
     worm = { segs, ang: Math.PI / 2, hp: 14, maxHp: 14, state: "chase", age: 0, grab: 0 };
@@ -299,7 +300,7 @@
       w.ang += Math.max(-turn, Math.min(turn, d));
       const sp = w.state === "chase" ? 150 + level * 6 : 260;
       h.x += Math.cos(w.ang) * sp * dt; h.y += Math.sin(w.ang) * sp * dt;
-      if (w.state === "chase" && ship.invuln <= 0 && Math.hypot(h.x - ship.x, h.y - ship.y) < 14 + (power.shield ? 30 : ship.r * 0.7)) {
+      if (w.state === "chase" && ship.invuln <= 0 && Math.hypot(h.x - ship.x, h.y - ship.y) < 14 + (power.shield ? 30 : ship.r * 0.9)) {
         if (power.shield) { hurtShip(h.x, h.y, "#7dff9b"); w.state = "flee"; }
         else { w.state = "grab"; w.grab = 4; sfx.grab(); }
       }
@@ -390,7 +391,7 @@
       ship.x += dx * k; ship.y += dy * k;
     }
     ship.x = Math.min(Math.max(ship.x, 20), W - 20);
-    ship.y = Math.min(Math.max(ship.y, 20), H - 20);
+    ship.y = Math.min(Math.max(ship.y, 34), H - 20);
     if (worm && worm.state === "grab") { ship.x = px; ship.y = py; }
     ship.invuln = Math.max(0, ship.invuln - dt);
 
@@ -432,6 +433,7 @@
     rocks = rocks.filter(a => a.y < H + a.r + 20);
 
     updateWorm(dt);
+    level = 1 + Math.floor(score / 500);
 
     // Treffer: Schuss gegen Asteroid
     for (const b of bullets) {
@@ -476,10 +478,10 @@
     bullets = bullets.filter(b => !b.dead);
     rocks = rocks.filter(a => !a.dead);
 
-    // Treffer: Asteroid gegen Schiff
-    if (ship.invuln <= 0) {
+    // Treffer: Asteroid gegen Schiff (waehrend des Wurm-Griffs ist das Schiff geschuetzt)
+    if (ship.invuln <= 0 && !(worm && worm.state === "grab")) {
       for (const a of rocks) {
-        if (Math.hypot(a.x - ship.x, a.y - ship.y) < a.r * 0.85 + (power.shield ? 30 : ship.r * 0.7)) {
+        if (Math.hypot(a.x - ship.x, a.y - ship.y) < a.r * 0.85 + (power.shield ? 30 : ship.r * 0.9)) {
           a.dead = true;
           hurtShip(a.x, a.y, a.wormy ? "#7dff9b" : "#ffb347");
           break;

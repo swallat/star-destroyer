@@ -45,29 +45,31 @@ const check = (name, ok, info) => { console.log((ok ? "OK   " : "FAIL ") + name 
   await page.waitForTimeout(100);
   const after = await page.evaluate(() => ({ lives: __game.lives, shield: __game.power.shield }));
   check("Schild faengt einen Treffer ab", after.lives === lives0 && after.shield === false, after);
-  // Extra-Leben
-  const lifeRes = await page.evaluate(() => { __game.ship.invuln = 0; __game.rocks.length = 0; return null; });
-  await page.evaluate(() => { __game.spawnRock(1, __game.ship.x, __game.ship.y); });
+  // Extra-Leben: erst ein Leben verlieren, dann mit dem Herz zurueckholen
+  await page.evaluate(() => { __game.power.shield = false; __game.ship.invuln = 0; __game.rocks.length = 0; __game.spawnRock(1, __game.ship.x, __game.ship.y); });
   await page.waitForTimeout(100);
   const lv1 = await page.evaluate(() => __game.lives);
   await page.evaluate(() => { __game.dropPowerup("life", __game.ship.x, __game.ship.y - 5); });
   await page.waitForTimeout(150);
   const lv2 = await page.evaluate(() => __game.lives);
-  check("Herz-Power-up gibt ein Leben zurueck", lv1 < 3 ? lv2 === lv1 + 1 : lv2 === 3, { lv1, lv2 });
+  check("Herz-Power-up gibt ein Leben zurueck", lv1 < 3 && lv2 === lv1 + 1, { lv1, lv2 });
 
   // Kometen und Space-Wurm
   await page.evaluate(() => { __game.rocks.length = 0; __game.ship.invuln = 5; const c = __game.spawnComet(__game.ship.x, true, __game.ship.y - 150); c.vx = 0; c.vy = 0; });
-  await page.keyboard.down("Space"); await page.waitForTimeout(700); await page.keyboard.up("Space");
+  await page.keyboard.down("Space");
+  await page.waitForFunction(() => __game.worm !== null, null, { timeout: 3000 }).catch(() => {});
+  await page.keyboard.up("Space");
   check("Wurm-Komet setzt einen Wurm frei", await page.evaluate(() => __game.worm !== null));
-  await page.evaluate(() => { __game.ship.invuln = 0; __game.power.shield = false; });
-  await page.waitForFunction(() => __game.worm === null || __game.worm.state === "grab", null, { timeout: 15000 }).catch(() => {});
+  await page.evaluate(() => { __game.rocks.length = 0; __game.ship.invuln = 0; __game.power.shield = false; });
+  await page.waitForFunction(() => __game.worm && __game.worm.state === "grab", null, { timeout: 15000 }).catch(() => {});
   const wState = await page.evaluate(() => __game.worm && __game.worm.state);
-  check("Wurm faengt das Schiff ein", wState === "grab" || wState === null, { wState });
+  check("Wurm faengt das Schiff ein", wState === "grab", { wState });
   const livesBefore = await page.evaluate(() => __game.lives);
   await page.keyboard.down("Space");
   await page.waitForFunction(() => __game.worm === null, null, { timeout: 4500 }).catch(() => {});
   await page.keyboard.up("Space");
-  check("Mit Schiessen befreit man sich und besiegt den Wurm", await page.evaluate(() => __game.worm === null && __game.lives >= 1), { livesBefore });
+  const livesAfter = await page.evaluate(() => __game.lives);
+  check("Mit Schiessen befreit man sich und besiegt den Wurm", await page.evaluate(() => __game.worm === null) && livesAfter === livesBefore, { livesBefore, livesAfter });
   await page.keyboard.press("KeyM");
   check("M schaltet den Ton aus", await page.evaluate(() => __game.muted) === true);
   await page.keyboard.press("KeyM");
