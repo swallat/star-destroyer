@@ -33,7 +33,6 @@
     W = cw / scale; H = ch / scale;
     ctx.setTransform(dpr * scale, 0, 0, dpr * scale, 0, 0);
     if (stars.length === 0) initStars();
-    if (ghosts.length === 0) initGhosts();
     bgCanvas = null;
     if (ship) { ship.x = Math.min(Math.max(ship.x, 20), W - 20); ship.y = Math.min(Math.max(ship.y, 20), H - 20); }
   }
@@ -80,6 +79,7 @@
     hit() { noise(0.5, 0.6, 3000); tone("sawtooth", 160, 40, 0.5, 0.25); },
     power() { [520, 660, 880].forEach((f, i) => tone("triangle", f, f * 1.02, 0.12, 0.18, i * 0.07)); },
     shieldBreak() { tone("sine", 900, 200, 0.3, 0.25); noise(0.2, 0.2, 5000); },
+    bonus() { [660, 880, 1100, 1320].forEach((f, i) => tone("triangle", f, f, 0.14, 0.2, i * 0.06)); },
     worm() { tone("sawtooth", 140, 45, 0.7, 0.22); noise(0.5, 0.25, 900); },
     grab() { tone("square", 300, 60, 0.5, 0.2); },
     wormHit() { tone("sine", 220, 90, 0.12, 0.18); },
@@ -95,16 +95,8 @@
   try { highscore = parseInt(localStorage.getItem(HS_KEY) || "0", 10) || 0; } catch (e) {}
   let state = "menu"; // menu | play | pause | over
   const reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  let worm = null, ghosts = [], items = [], power = { triple: 0, shield: false }, trailAcc = 0, bgCanvas = null, rockGrad = null, rings = [], shake = 0, scorePop = 0, lastScore = 0, newHigh = false, ship, bullets, rocks, particles, score, lives, level, spawnTimer, fireTimer, time = 0, flash = 0;
+  let worm = null, hoops = [], floaters = [], hoopTimer = 6, items = [], power = { triple: 0, shield: false }, trailAcc = 0, bgCanvas = null, rockGrad = null, rings = [], shake = 0, scorePop = 0, lastScore = 0, newHigh = false, ship, bullets, rocks, particles, score, lives, level, spawnTimer, fireTimer, time = 0, flash = 0;
   const stars = [];
-
-  function initGhosts() {
-    ghosts = [];
-    for (let i = 0; i < 7; i++) {
-      const shape = []; for (let k = 0; k < 11; k++) shape.push(0.7 + Math.random() * 0.5);
-      ghosts.push({ x: Math.random() * W, y: Math.random() * H, r: 30 + Math.random() * 45, shape, rot: Math.random() * 6.28, vr: (Math.random() - 0.5) * 0.4, vx: (Math.random() - 0.5) * 12, vy: 18 + Math.random() * 22 });
-    }
-  }
 
   function initStars() {
     stars.length = 0;
@@ -113,7 +105,7 @@
 
   function reset() {
     ship = { x: W / 2, y: H * 0.8, vx: 0, vy: 0, r: 16, invuln: 2 };
-    bullets = []; rocks = []; particles = []; rings = []; items = []; power = { triple: 0, shield: false }; worm = null; shake = 0; scorePop = 0; lastScore = 0;
+    bullets = []; rocks = []; particles = []; rings = []; items = []; power = { triple: 0, shield: false }; worm = null; hoops = []; floaters = []; hoopTimer = 6; shake = 0; scorePop = 0; lastScore = 0;
     score = 0; newHigh = false; flash = 0; lives = 3; level = 1; spawnTimer = 1; fireTimer = 0;
   }
 
@@ -238,6 +230,26 @@
     });
   }
 
+  const HOOP_R = 50, HOOP_HOLE = 20;
+  function spawnHoop(x, y) {
+    const shape = [];
+    for (let k = 0; k < 16; k++) shape.push(0.88 + Math.random() * 0.14);
+    const h = { x: x ?? 90 + Math.random() * Math.max(10, W - 180), y: y ?? -HOOP_R, vx: (Math.random() - 0.5) * 50, vy: 80, rot: Math.random() * 6.28, shape, done: false, t: 0 };
+    hoops.push(h);
+    return h;
+  }
+
+  function hoopSuccess(hp) {
+    hp.done = true;
+    score += 250;
+    explode(hp.x, hp.y, 30, "#ffd166", HOOP_R * 2.4);
+    explode(hp.x, hp.y, 16, "#ffffff", HOOP_R * 1.5);
+    floaters.push({ x: hp.x, y: hp.y - 10, text: "DURCHSCHUSS! +250", life: 1.6, color: "#ffd166" });
+    sfx.bonus();
+    randomDrop(hp.x, hp.y, true);
+    if (!reduceMotion) shake = Math.max(shake, 4);
+  }
+
   function spawnComet(x, wormy, y) {
     const c = { comet: true, wormy: !!wormy, x: x ?? 40 + Math.random() * (W - 80), y: y ?? -20, vx: (Math.random() - 0.5) * 90, vy: 230 + level * 8, r: 18, size: 1, rot: 0, vr: 0, shape: [], craters: [] };
     rocks.push(c);
@@ -275,6 +287,11 @@
   function killWorm() {
     worm.segs.forEach((sg, i) => explode(sg.x, sg.y, 8, "#7dff9b", i === 0 ? 90 : 0));
     score += 300; sfx.boom(3);
+    if (lives < 4) {
+      lives++;
+      floaters.push({ x: ship.x, y: ship.y - 50, text: "EXTRA-LEBEN!", life: 1.8, color: "#ffd166" });
+      sfx.power();
+    } else score += 200;
     if (worm.state === "grab") ship.invuln = 1.5;
     randomDrop(worm.segs[0].x, worm.segs[0].y, true);
     if (!reduceMotion) shake = Math.max(shake, 8);
@@ -346,10 +363,6 @@
   // ---- Update ----
   function update(dt) {
     time += dt;
-    for (const g of ghosts) {
-      g.x += g.vx * dt; g.y += g.vy * dt; g.rot += g.vr * dt;
-      if (g.y > H + g.r) { g.y = -g.r; g.x = Math.random() * W; }
-    }
     for (const s of stars) { s.y += 30 * s.z * dt * (state === "play" ? 1 + level * 0.08 : 1); }
     for (const p of particles) { p.x += p.vx * dt; p.y += p.vy * dt; p.life -= dt; }
     particles = particles.filter(p => p.life > 0);
@@ -400,6 +413,9 @@
     fireTimer -= dt;
     if (wantsFire && fireTimer <= 0) { shoot(); fireTimer = 0.18; }
 
+    if (hoops.length === 0) hoopTimer -= dt;
+    if (hoopTimer <= 0 && hoops.length === 0) { spawnHoop(); hoopTimer = 9 + Math.random() * 6; }
+
     // Asteroiden erscheinen, werden mit dem Level haeufiger
     spawnTimer -= dt;
     if (spawnTimer <= 0) {
@@ -426,8 +442,25 @@
       }
     }
     items = items.filter(it => !it.dead && it.y < H + 30);
-    for (const b of bullets) { b.y += b.vy * dt; b.x += (b.vx || 0) * dt; }
+    for (const b of bullets) { b.py = b.y; b.y += b.vy * dt; b.x += (b.vx || 0) * dt; }
     bullets = bullets.filter(b => b.y > -20 && b.x > -20 && b.x < W + 20);
+
+    // Ring-Asteroiden: nur Schuesse durch das Loch kommen durch und geben einen Bonus
+    for (const hp of hoops) { hp.x += hp.vx * dt; hp.y += hp.vy * dt; hp.rot += dt * 0.3; hp.t += dt; }
+    for (const b of bullets) {
+      for (const hp of hoops) {
+        if (b.dead) continue;
+        if (b.py >= hp.y && b.y < hp.y) {
+          const dx = Math.abs(b.x - hp.x);
+          if (dx <= HOOP_HOLE) { if (!hp.done) hoopSuccess(hp); }
+          else if (dx <= HOOP_R * 0.9) { b.dead = true; explode(b.x, b.y, 4, "#c9b19c"); }
+        }
+      }
+    }
+    bullets = bullets.filter(b => !b.dead);
+    hoops = hoops.filter(hp => hp.y < H + HOOP_R + 20 && hp.x > -120 && hp.x < W + 120);
+    for (const f of floaters) { f.life -= dt; f.y -= 28 * dt; }
+    floaters = floaters.filter(f => f.life > 0);
 
     for (const a of rocks) { a.x += a.vx * dt; a.y += a.vy * dt; a.rot += a.vr * dt; if (a.x < -a.r) a.x = W + a.r; if (a.x > W + a.r) a.x = -a.r; }
     rocks = rocks.filter(a => a.y < H + a.r + 20);
@@ -551,20 +584,33 @@
     ctx.restore();
   }
 
-  function drawGhosts() {
-    for (const g of ghosts) {
-      const near = state !== "menu" && ship && Math.hypot(g.x - ship.x, g.y - ship.y) < g.r;
-      ctx.save(); ctx.translate(g.x, g.y); ctx.rotate(g.rot);
-      ctx.beginPath();
-      for (let i = 0; i < g.shape.length; i++) {
-        const ang = (i / g.shape.length) * 6.2832, rr = g.r * g.shape[i];
-        if (i === 0) ctx.moveTo(Math.cos(ang) * rr, Math.sin(ang) * rr); else ctx.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
-      }
-      ctx.closePath();
-      ctx.fillStyle = near ? "rgba(150,180,255,0.22)" : "rgba(110,125,170,0.14)"; ctx.fill();
-      ctx.strokeStyle = near ? "rgba(170,200,255,0.55)" : "rgba(150,165,210,0.25)"; ctx.lineWidth = 2; ctx.stroke();
-      ctx.restore();
+  function getRockGrad() {
+    if (!rockGrad) {
+      rockGrad = ctx.createRadialGradient(-0.35, -0.35, 0.1, 0, 0, 1.1);
+      rockGrad.addColorStop(0, "#8d8b8a"); rockGrad.addColorStop(0.45, "#4a4745"); rockGrad.addColorStop(1, "#181615");
     }
+    return rockGrad;
+  }
+
+  function drawHoop(hp) {
+    ctx.save(); ctx.translate(hp.x, hp.y); ctx.rotate(hp.rot);
+    ctx.beginPath();
+    for (let i = 0; i < hp.shape.length; i++) {
+      const ang = (i / hp.shape.length) * 6.2832, rr = HOOP_R * hp.shape[i];
+      if (i === 0) ctx.moveTo(Math.cos(ang) * rr, Math.sin(ang) * rr); else ctx.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
+    }
+    ctx.closePath();
+    ctx.moveTo(HOOP_HOLE, 0); ctx.arc(0, 0, HOOP_HOLE, 0, 6.2832, true);
+    ctx.save(); ctx.scale(HOOP_R, HOOP_R); ctx.fillStyle = hp.done ? "#6b5a2e" : getRockGrad(); ctx.fill("evenodd"); ctx.restore();
+    ctx.strokeStyle = "#9a6a47"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.restore();
+    // leuchtender Rand um das Loch (Ziel)
+    ctx.save(); ctx.translate(hp.x, hp.y);
+    const pulse = 0.6 + 0.4 * Math.sin(hp.t * 6);
+    ctx.strokeStyle = hp.done ? "rgba(255,209,102,0.9)" : `rgba(127,212,255,${0.55 + 0.4 * pulse})`;
+    ctx.shadowColor = hp.done ? "#ffd166" : "#4cc9f0"; ctx.shadowBlur = 14; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, 0, HOOP_HOLE, 0, 6.2832); ctx.stroke();
+    ctx.restore();
   }
 
   function drawComet(a) {
@@ -660,11 +706,7 @@
       if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
     }
     ctx.closePath();
-    if (!rockGrad) {
-      rockGrad = ctx.createRadialGradient(-0.35, -0.35, 0.1, 0, 0, 1.1);
-      rockGrad.addColorStop(0, "#8d8b8a"); rockGrad.addColorStop(0.45, "#4a4745"); rockGrad.addColorStop(1, "#181615");
-    }
-    ctx.save(); ctx.scale(a.r, a.r); ctx.fillStyle = rockGrad; ctx.fill(); ctx.restore();
+    ctx.save(); ctx.scale(a.r, a.r); ctx.fillStyle = getRockGrad(); ctx.fill(); ctx.restore();
     ctx.strokeStyle = "#9a6a47"; ctx.lineWidth = 2; ctx.stroke();
     // Krater (dunkel) und Rostflecken (orangebraun), wie bei einem echten Eisenmeteoriten
     a.craters.forEach((c, i) => {
@@ -706,11 +748,11 @@
     ctx.drawImage(bgCanvas, -W * 0.05 + dx, -H * 0.05 + dy, W * 1.1, H * 1.1);
   }
 
-  function drawHeart(x, y, size, fill) {
+  function drawHeart(x, y, size, fill, color) {
     ctx.save(); ctx.translate(x, y); ctx.scale(size, size);
     ctx.beginPath();
     ctx.moveTo(0, 0.35); ctx.bezierCurveTo(-1, -0.3, -0.5, -1, 0, -0.45); ctx.bezierCurveTo(0.5, -1, 1, -0.3, 0, 0.35);
-    ctx.fillStyle = fill ? "#ff5f6d" : "rgba(255,95,109,0.2)";
+    ctx.fillStyle = fill ? (color || "#ff5f6d") : "rgba(255,95,109,0.2)";
         ctx.fill(); ctx.restore();
   }
 
@@ -723,7 +765,6 @@
       ctx.fillStyle = `rgba(${s.z > 0.9 ? "190,225,255" : "255,255,255"},${(0.3 + s.z * 0.55) * tw})`;
       ctx.fillRect(x, y, s.z * 2.2, s.z * 2.2);
     }
-    drawGhosts();
     ctx.save();
     if (shake > 0 && !reduceMotion) ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
     if (state === "menu") {
@@ -741,6 +782,7 @@
       if (highscore) text("Highscore: " + highscore, W / 2, H * 0.55 + 204, 20, "#fff");
       return;
     }
+    for (const hp of hoops) drawHoop(hp);
     for (const a of rocks) drawRock(a);
     drawItems();
     ctx.save();
@@ -762,6 +804,7 @@
     ctx.globalAlpha = 1;
     if (state !== "over") drawShip();
     drawWorm();
+    for (const f of floaters) { ctx.globalAlpha = Math.min(1, f.life); text(f.text, f.x, f.y, 22, f.color, "center", "#000"); ctx.globalAlpha = 1; }
     ctx.restore();
     if (flash > 0) { ctx.fillStyle = `rgba(255,80,80,${flash * 1.2})`; ctx.fillRect(0, 0, W, H); }
 
@@ -776,7 +819,8 @@
     }
     if (power.triple > 0) text("3-FACH " + Math.ceil(power.triple) + "s", 16, H - 18, 16, "#7dff9b", "left");
     if (power.shield) text("SCHILD", 16, H - (power.triple > 0 ? 40 : 18), 16, "#6cc8ff", "left");
-    for (let i = 0; i < 3; i++) drawHeart(W - 28 - (2 - i) * 30, 26, 11, i < lives);
+    const heartCount = Math.max(3, lives);
+    for (let i = 0; i < heartCount; i++) drawHeart(W - 28 - (heartCount - 1 - i) * 30, 26, 11, i < lives, i >= 3 ? "#ffd166" : null);
     text("Highscore: " + Math.max(highscore, score), 16, 56, 15, "#9fb0c8", "left");
 
     if (state === "pause") {
@@ -808,7 +852,7 @@
   reset();
   resize();
   // Fuer automatische Tests
-  window.__game = { get state() { return state; }, get score() { return score; }, get lives() { return lives; }, get ship() { return ship; }, get rocks() { return rocks; }, get power() { return power; }, get items() { return items; }, dropPowerup, spawnRock, spawnComet, spawnWorm, get worm() { return worm ? { state: worm.state, hp: worm.hp } : null; }, get muted() { return muted; }, get bullets() { return bullets; }, get W() { return W; }, get H() { return H; } };
+  window.__game = { get state() { return state; }, get score() { return score; }, get lives() { return lives; }, get ship() { return ship; }, get rocks() { return rocks; }, get power() { return power; }, get items() { return items; }, dropPowerup, spawnRock, spawnComet, spawnWorm, get hoops() { return hoops; }, spawnHoop, get worm() { return worm ? { state: worm.state, hp: worm.hp } : null; }, get muted() { return muted; }, get bullets() { return bullets; }, get W() { return W; }, get H() { return H; } };
   requestAnimationFrame(frame);
 })();
 </script>

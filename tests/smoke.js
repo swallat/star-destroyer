@@ -69,7 +69,18 @@ const check = (name, ok, info) => { console.log((ok ? "OK   " : "FAIL ") + name 
   await page.waitForFunction(() => __game.worm === null, null, { timeout: 4500 }).catch(() => {});
   await page.keyboard.up("Space");
   const livesAfter = await page.evaluate(() => __game.lives);
-  check("Mit Schiessen befreit man sich und besiegt den Wurm", await page.evaluate(() => __game.worm === null) && livesAfter === livesBefore, { livesBefore, livesAfter });
+  check("Wurm besiegt: befreit und ein Extra-Leben (bis maximal 4)", await page.evaluate(() => __game.worm === null) && livesAfter === Math.min(4, livesBefore + 1), { livesBefore, livesAfter });
+  // Ring-Asteroiden: durch das Loch schiessen gibt Bonus, daneben wird der Schuss geblockt
+  await page.evaluate(() => { __game.rocks.length = 0; __game.ship.invuln = 5; __game.bullets.length = 0; __game.hoops.length = 0; window.__h = __game.spawnHoop(__game.ship.x + 30, __game.ship.y - 200); window.__h.vx = 0; window.__h.vy = 0; });
+  await page.keyboard.down("Space"); await page.waitForTimeout(700); await page.keyboard.up("Space");
+  const blocked = await page.evaluate(() => ({ done: window.__h.done, bullets: __game.bullets.filter(b => Math.abs(b.x - window.__h.x) < 50 && b.y < window.__h.y).length }));
+  check("Schuss daneben wird vom Ring geblockt (kein Bonus)", blocked.done === false && blocked.bullets === 0, blocked);
+  await page.evaluate(() => { __game.hoops.length = 0; __game.bullets.length = 0; window.__h = __game.spawnHoop(__game.ship.x, __game.ship.y - 200); window.__h.vx = 0; window.__h.vy = 0; });
+  const scoreBefore = await page.evaluate(() => __game.score);
+  await page.keyboard.down("Space"); await page.waitForTimeout(700); await page.keyboard.up("Space");
+  const through = await page.evaluate(() => ({ done: window.__h.done, score: __game.score }));
+  check("Durchschuss durch das Loch gibt 250 Bonuspunkte", through.done === true && through.score >= scoreBefore + 250, { scoreBefore, ...through });
+
   await page.keyboard.press("KeyM");
   check("M schaltet den Ton aus", await page.evaluate(() => __game.muted) === true);
   await page.keyboard.press("KeyM");
