@@ -23,7 +23,7 @@ Das Spiel besteht aus einer einzigen Datei (`index.html`) und laeuft ohne Instal
 ## Kometen und Space-Wurm
 
 - Kometen mit langem Schweif sind schnell und geben mehr Punkte.
-- Aus gruen leuchtenden Kometen schluepft ein **Space-Wurm**, der das Schiff verfolgt. Beruehrt er es, ist es gefangen: Jetzt schnell schiessen, bis der Wurm besiegt ist, sonst kostet es ein Leben. Ein Schutzschild wehrt den Wurm einmal ab.
+- Aus gruen leuchtenden Kometen schluepft ein **Space-Wurm**, der das Schiff verfolgt. Beruehrt er es, ist es gefangen: Jetzt schnell schiessen, bis der Wurm besiegt ist, sonst kostet es ein Leben. Ein Schutzschild wehrt den Wurm einmal ab. Wer den Wurm besiegt, bekommt ein **Extra-Leben** obendrauf (goldenes viertes Herz, maximal 4 Leben).
 - **Ring-Asteroiden** haben ein leuchtendes Loch in der Mitte. Schuesse treffen nur den Rand und prallen ab. Wer genau durch das Loch zielt, bekommt den **Durchschuss-Bonus**: 250 Punkte und ein Power-up. Das Loch wird danach golden.
 - Alle Sounds werden vom Browser selbst erzeugt. Ton an/aus mit **M** oder dem Lautsprecher-Symbol oben rechts. Auf dem iPad startet der Ton nach dem ersten Tippen, und der Stummschalter am iPad schaltet ihn ebenfalls stumm.
 
